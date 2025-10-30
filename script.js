@@ -1,7 +1,7 @@
 // 初始化LeanCloud（替换成你的App ID和App Key）
 AV.init({
-  appId: "你的App ID",
-  appKey: "你的App Key",
+  appId: "cVypwHIg9srBsu26qVCVVNjl-gzGzoHsz",
+  appKey: "kE1o0ixRy6RlyqpMu3qnFJDc",
   serverURL: "https://cvypwhig.lc-cn-n1-shared.com" // 从LeanCloud的「应用 Keys」中复制「服务器地址」
 });
 /* ============================================
