@@ -690,92 +690,117 @@ function toggleCubePlayPause() {
     isCubePlaying = !isCubePlaying;
 }
 
-// 初始化留言墙（修改原函数）
-function initMessageWall() {
-  const addBtn = document.getElementById('addMessageBtn');
-  addBtn.addEventListener('click', addNewMessage);
-  
-  // 按Enter键提交
-  document.getElementById('messageContent').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      addNewMessage();
+// ========== 留言功能（替换为LeanCloud云端存储） ==========
+// 定义LeanCloud留言表
+const Message = AV.Object.extend('Message');
+
+function submitMessage() {
+    // 注意：对应HTML中的输入框ID（根据最新代码调整）
+    const authorInput = document.getElementById('messageAuthor');
+    const contentInput = document.getElementById('messageContent');
+    const author = authorInput.value.trim();
+    const content = contentInput.value.trim();
+    
+    if (!author) {
+        showNotification('👤 请输入你的名字～');
+        return;
     }
-  });
-  
-  // 页面加载时，从云端读取所有留言
-  loadCloudMessages();
-}
-
-// 从云端读取留言并显示
-function loadCloudMessages() {
-  const container = document.getElementById('messagesContainer');
-  container.innerHTML = ''; // 清空现有内容
-  
-  // 查询messages表中的所有数据，按时间倒序排列（新留言在前）
-  const Message = AV.Object.extend('messages');
-  const query = new AV.Query(Message);
-  query.descending('createdAt'); // 按创建时间倒序
-  
-  query.find().then(messages => {
-    // 遍历查询结果，显示每条留言
-    messages.forEach(message => {
-      const data = message.toJSON(); // 获取留言数据
-      const messageCard = document.createElement('div');
-      messageCard.className = 'message-card';
-      messageCard.innerHTML = `
-        <div class="message-meta">
-          <span class="author">${data.author}</span>
-          <span class="time">${formatTime(data.createdAt)}</span>
-        </div>
-        <div class="message-body">${data.content}</div>
-      `;
-      container.appendChild(messageCard);
+    if (!content) {
+        showNotification('💬 请输入留言内容哦～');
+        return;
+    }
+    
+    // 创建云端留言对象（包含作者信息）
+    const message = new Message();
+    message.set('author', author);
+    message.set('content', content);
+    message.set('timestamp', new Date().toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    }));
+    
+    // 保存到LeanCloud云端
+    message.save().then(savedMessage => {
+        // 显示新留言
+        displayMessage({
+            author: savedMessage.get('author'),
+            content: savedMessage.get('content'),
+            timestamp: savedMessage.get('timestamp')
+        });
+        
+        // 清空输入框
+        authorInput.value = '';
+        contentInput.value = '';
+        showNotification('💌 留言已同步到云端，所有人可见～');
+    }).catch(error => {
+        console.error('留言保存失败:', error);
+        showNotification('❌ 留言失败，请稍后再试');
     });
-  }).catch(error => {
-    console.error('读取留言失败：', error);
-    alert('加载留言失败，请稍后再试～');
-  });
 }
 
-// 添加新留言到云端
-function addNewMessage() {
-  const authorInput = document.getElementById('messageAuthor');
-  const contentInput = document.getElementById('messageContent');
-  
-  const author = authorInput.value.trim() || '匿名';
-  const content = contentInput.value.trim();
-  
-  if (!content) {
-    alert('请输入留言内容哦～');
-    return;
-  }
-  
-  // 创建一条新留言数据
-  const Message = AV.Object.extend('messages');
-  const message = new Message();
-  message.set('author', author);
-  message.set('content', content);
-  
-  // 保存到云端
-  message.save().then(() => {
-    // 保存成功后，重新加载留言列表
-    loadCloudMessages();
-    // 清空输入框
-    authorInput.value = '';
-    contentInput.value = '';
-  }).catch(error => {
-    console.error('添加留言失败：', error);
-    alert('留言发送失败，请稍后再试～');
-  });
+function displayMessage(message) {
+    const container = document.getElementById('messagesContainer');
+    
+    // 清空初始提示文字
+    if (container.innerHTML.trim() === '' || container.innerHTML.includes('暂无留言')) {
+        container.innerHTML = '';
+    }
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message-card'; // 使用现有样式类
+    messageDiv.innerHTML = `
+        <div class="message-author">${escapeHtml(message.author)} 说：</div>
+        <div class="message-time">${message.timestamp}</div>
+        <div class="message-text">${escapeHtml(message.content)}</div>
+    `;
+    
+    container.appendChild(messageDiv);
+    container.scrollTop = container.scrollHeight; // 滚动到底部
 }
 
-// 辅助函数：格式化时间（将云端时间转为友好显示格式）
-function formatTime(dateString) {
-  const date = new Date(dateString);
-  return `${date.getMonth()+1}月${date.getDate()}日 ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+function loadMessages() {
+    const container = document.getElementById('messagesContainer');
+    // 从LeanCloud查询所有留言（按时间倒序）
+    const query = new AV.Query('Message');
+    query.descending('createdAt'); // 最新的留言显示在前面
+    query.find().then(messages => {
+        if (messages.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: #999; font-size: 1.1em;">暂无留言，快来写下你的心声吧～</p>';
+            return;
+        }
+        
+        // 显示所有云端留言
+        messages.forEach(msg => {
+            displayMessage({
+                author: msg.get('author'),
+                content: msg.get('content'),
+                timestamp: msg.get('timestamp')
+            });
+        });
+    }).catch(error => {
+        console.error('加载留言失败:', error);
+        container.innerHTML = '<p style="text-align: center; color: #f00; font-size: 1.1em;">加载留言失败，请刷新页面重试</p>';
+    });
 }
 
+// 清除所有留言（云端数据，谨慎使用）
+function clearAllMessages() {
+    if (confirm('确定要清除所有云端留言吗？此操作不可恢复！')) {
+        const query = new AV.Query('Message');
+        query.find().then(messages => {
+            return AV.Object.destroyAll(messages);
+        }).then(() => {
+            document.getElementById('messagesContainer').innerHTML = '<p style="text-align: center; color: #999; font-size: 1.1em;">暂无留言，快来写下你的心声吧～</p>';
+            showNotification('🗑️ 所有云端留言已清除');
+        }).catch(error => {
+            console.error('清除留言失败:', error);
+            showNotification('❌ 清除失败，请稍后再试');
+        });
+    }
+}
 // 正方体旋转功能
 document.addEventListener('DOMContentLoaded', function() {
   const cube = document.getElementById('holidayCube');
