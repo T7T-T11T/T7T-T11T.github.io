@@ -482,9 +482,7 @@ window.addEventListener('load', function() {
     }, 500);
 });
 
-function showTextDetail(element) {
-    alert(element.innerText);
-}
+
 
 function randomizeStickerPositions() {
     const container = document.getElementById('randomStickersContainer');
