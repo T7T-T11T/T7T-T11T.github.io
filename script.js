@@ -165,18 +165,27 @@ function playVideo(videoElement) {
 }
 
 // ========== 留言功能 ==========
+// 替换原有的submitMessage函数
 function submitMessage() {
-    const messageInput = document.getElementById('messageInput');
-    const messageText = messageInput.value.trim();
+    const authorInput = document.getElementById('messageAuthor');
+    const contentInput = document.getElementById('messageContent');
+    const author = authorInput.value.trim();
+    const content = contentInput.value.trim();
     
-    if (messageText === '') {
-        showNotification('💝 请先输入留言内容哦～');
+    if (!author) {
+        showNotification('💝 请输入你的名字哦～');
+        return;
+    }
+    
+    if (!content) {
+        showNotification('💝 请输入留言内容哦～');
         return;
     }
     
     // 创建留言对象
     const message = {
-        text: messageText,
+        author: author,
+        text: content,
         timestamp: new Date().toLocaleString('zh-CN', {
             year: 'numeric',
             month: '2-digit',
@@ -195,18 +204,21 @@ function submitMessage() {
     displayMessage(message);
     
     // 清空输入框
-    messageInput.value = '';
+    authorInput.value = '';
+    contentInput.value = '';
     
     // 提示
     showNotification('💌 留言已保存～');
 }
 
+// 同时修改displayMessage函数
 function displayMessage(message) {
     const container = document.getElementById('messagesContainer');
     
     const messageDiv = document.createElement('div');
-    messageDiv.className = 'message-bubble';
+    messageDiv.className = 'message-card';  // 使用已定义的样式类
     messageDiv.innerHTML = `
+        <div class="message-author">${escapeHtml(message.author)}</div>
         <div class="message-time">${message.timestamp}</div>
         <div class="message-text">${escapeHtml(message.text)}</div>
     `;
@@ -765,3 +777,96 @@ function formatTime(dateString) {
   const date = new Date(dateString);
   return `${date.getMonth()+1}月${date.getDate()}日 ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
 }
+
+// 正方体旋转功能
+document.addEventListener('DOMContentLoaded', function() {
+  const cube = document.getElementById('holidayCube');
+  const playPauseBtn = document.getElementById('cubePlayPauseBtn');
+  
+  // 旋转状态变量
+  let isRotating = true;
+  let rotateX = 0;
+  let rotateY = 0;
+  let lastX, lastY;
+  let isDragging = false;
+  
+  // 自动旋转函数
+  function autoRotate() {
+    if (isRotating) {
+      rotateY += 0.5;
+      updateCubeRotation();
+    }
+    requestAnimationFrame(autoRotate);
+  }
+  
+  // 更新正方体旋转状态
+  function updateCubeRotation() {
+    cube.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+  }
+  
+  // 切换播放/暂停
+  playPauseBtn.addEventListener('click', function() {
+    isRotating = !isRotating;
+    playPauseBtn.textContent = isRotating ? '⏸' : '▶';
+  });
+  
+  // 鼠标拖动旋转
+  cube.parentElement.addEventListener('mousedown', startDrag);
+  document.addEventListener('mousemove', drag);
+  document.addEventListener('mouseup', endDrag);
+  document.addEventListener('mouseleave', endDrag);
+  
+  // 触摸设备支持
+  cube.parentElement.addEventListener('touchstart', startDrag, { passive: true });
+  document.addEventListener('touchmove', drag, { passive: true });
+  document.addEventListener('touchend', endDrag);
+  
+  function startDrag(e) {
+    isDragging = true;
+    // 处理鼠标和触摸事件
+    if (e.type === 'mousedown') {
+      lastX = e.clientX;
+      lastY = e.clientY;
+    } else {
+      lastX = e.touches[0].clientX;
+      lastY = e.touches[0].clientY;
+    }
+    // 拖动时暂停自动旋转
+    isRotating = false;
+    playPauseBtn.textContent = '▶';
+  }
+  
+  function drag(e) {
+    if (!isDragging) return;
+    
+    let currentX, currentY;
+    if (e.type === 'mousemove') {
+      currentX = e.clientX;
+      currentY = e.clientY;
+    } else {
+      currentX = e.touches[0].clientX;
+      currentY = e.touches[0].clientY;
+    }
+    
+    // 计算旋转差值
+    const deltaX = currentX - lastX;
+    const deltaY = currentY - lastY;
+    
+    rotateY += deltaX * 0.5;
+    rotateX -= deltaY * 0.5;
+    
+    // 更新旋转
+    updateCubeRotation();
+    
+    // 保存当前位置
+    lastX = currentX;
+    lastY = currentY;
+  }
+  
+  function endDrag() {
+    isDragging = false;
+  }
+  
+  // 启动自动旋转
+  autoRotate();
+});
