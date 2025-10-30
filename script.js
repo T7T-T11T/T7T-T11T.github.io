@@ -1,3 +1,9 @@
+// 初始化LeanCloud（替换成你的App ID和App Key）
+AV.init({
+  appId: "你的App ID",
+  appKey: "你的App Key",
+  serverURL: "https://cvypwhig.lc-cn-n1-shared.com" // 从LeanCloud的「应用 Keys」中复制「服务器地址」
+});
 /* ============================================
    Hello Kitty 十年友谊回忆相册 - 交互脚本
    包含照片放大、音乐播放、留言等功能
@@ -674,69 +680,88 @@ function toggleCubePlayPause() {
     isCubePlaying = !isCubePlaying;
 }
 
-// 初始化留言墙功能
+// 初始化留言墙（修改原函数）
 function initMessageWall() {
-    const addBtn = document.getElementById('addMessageBtn');
-    addBtn.addEventListener('click', addNewMessage);
-    
-    // 允许按Enter键提交
-    document.getElementById('messageContent').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            addNewMessage();
-        }
-    });
+  const addBtn = document.getElementById('addMessageBtn');
+  addBtn.addEventListener('click', addNewMessage);
+  
+  // 按Enter键提交
+  document.getElementById('messageContent').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      addNewMessage();
+    }
+  });
+  
+  // 页面加载时，从云端读取所有留言
+  loadCloudMessages();
 }
 
-// 添加新留言
-function addNewMessage() {
-    const authorInput = document.getElementById('messageAuthor');
-    const contentInput = document.getElementById('messageContent');
-    const container = document.getElementById('messagesContainer');
-    
-    // 获取输入值
-    const author = authorInput.value.trim() || '匿名';
-    const content = contentInput.value.trim();
-    
-    // 验证内容
-    if (!content) {
-        alert('请输入留言内容哦～');
-        return;
-    }
-    
-    // 创建新留言卡片
-    const messageCard = document.createElement('div');
-    messageCard.className = 'message-card';
-    
-    // 获取当前时间
-    const now = new Date();
-    const timeStr = `${now.getMonth()+1}月${now.getDate()}日 ${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
-    
-    // 设置留言内容
-    messageCard.innerHTML = `
+// 从云端读取留言并显示
+function loadCloudMessages() {
+  const container = document.getElementById('messagesContainer');
+  container.innerHTML = ''; // 清空现有内容
+  
+  // 查询messages表中的所有数据，按时间倒序排列（新留言在前）
+  const Message = AV.Object.extend('messages');
+  const query = new AV.Query(Message);
+  query.descending('createdAt'); // 按创建时间倒序
+  
+  query.find().then(messages => {
+    // 遍历查询结果，显示每条留言
+    messages.forEach(message => {
+      const data = message.toJSON(); // 获取留言数据
+      const messageCard = document.createElement('div');
+      messageCard.className = 'message-card';
+      messageCard.innerHTML = `
         <div class="message-meta">
-            <span class="author">${author}</span>
-            <span class="time">${timeStr}</span>
+          <span class="author">${data.author}</span>
+          <span class="time">${formatTime(data.createdAt)}</span>
         </div>
-        <div class="message-body">${content}</div>
-    `;
-    
-    // 添加到容器（插入到最前面）
-    container.insertBefore(messageCard, container.firstChild);
-    
-    // 清空输入
+        <div class="message-body">${data.content}</div>
+      `;
+      container.appendChild(messageCard);
+    });
+  }).catch(error => {
+    console.error('读取留言失败：', error);
+    alert('加载留言失败，请稍后再试～');
+  });
+}
+
+// 添加新留言到云端
+function addNewMessage() {
+  const authorInput = document.getElementById('messageAuthor');
+  const contentInput = document.getElementById('messageContent');
+  
+  const author = authorInput.value.trim() || '匿名';
+  const content = contentInput.value.trim();
+  
+  if (!content) {
+    alert('请输入留言内容哦～');
+    return;
+  }
+  
+  // 创建一条新留言数据
+  const Message = AV.Object.extend('messages');
+  const message = new Message();
+  message.set('author', author);
+  message.set('content', content);
+  
+  // 保存到云端
+  message.save().then(() => {
+    // 保存成功后，重新加载留言列表
+    loadCloudMessages();
+    // 清空输入框
     authorInput.value = '';
     contentInput.value = '';
-    
-    // 添加动画效果
-    messageCard.style.opacity = '0';
-    messageCard.style.transform = 'translateY(20px)';
-    setTimeout(() => {
-        messageCard.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-        messageCard.style.opacity = '1';
-        messageCard.style.transform = 'translateY(0)';
-    }, 10);
+  }).catch(error => {
+    console.error('添加留言失败：', error);
+    alert('留言发送失败，请稍后再试～');
+  });
 }
 
-// 页面加载完成后初始化
-window.addEventListener('load', initHolidayCube);
+// 辅助函数：格式化时间（将云端时间转为友好显示格式）
+function formatTime(dateString) {
+  const date = new Date(dateString);
+  return `${date.getMonth()+1}月${date.getDate()}日 ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+}
