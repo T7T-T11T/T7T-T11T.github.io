@@ -165,7 +165,7 @@ function playVideo(videoElement) {
 }
 
 // ========== 留言功能 ==========
-// 替换原有的submitMessage函数
+// ========== 留言功能（LeanCloud 版本）==========
 function submitMessage() {
     const authorInput = document.getElementById('messageAuthor');
     const contentInput = document.getElementById('messageContent');
@@ -176,16 +176,19 @@ function submitMessage() {
         showNotification('💝 请输入你的名字哦～');
         return;
     }
-    
     if (!content) {
         showNotification('💝 请输入留言内容哦～');
         return;
     }
     
-    // 创建留言对象
-    const message = {
+    // 创建 LeanCloud 数据对象
+    const Message = AV.Object.extend('Message');
+    const message = new Message();
+    
+    // 保存数据到云端
+    message.save({
         author: author,
-        text: content,
+        content: content,
         timestamp: new Date().toLocaleString('zh-CN', {
             year: 'numeric',
             month: '2-digit',
@@ -193,71 +196,65 @@ function submitMessage() {
             hour: '2-digit',
             minute: '2-digit'
         })
-    };
-    
-    // 保存到localStorage
-    let messages = JSON.parse(localStorage.getItem('friendshipMessages') || '[]');
-    messages.push(message);
-    localStorage.setItem('friendshipMessages', JSON.stringify(messages));
-    
-    // 显示新留言
-    displayMessage(message);
-    
-    // 清空输入框
-    authorInput.value = '';
-    contentInput.value = '';
-    
-    // 提示
-    showNotification('💌 留言已保存～');
+    }).then(() => {
+        showNotification('💌 留言已保存～');
+        // 清空输入框
+        authorInput.value = '';
+        contentInput.value = '';
+        // 重新加载留言列表
+        loadMessages();
+    }).catch(error => {
+        console.error('留言保存失败:', error);
+        showNotification('❌ 留言失败，请稍后再试');
+    });
 }
 
-// 同时修改displayMessage函数
 function displayMessage(message) {
     const container = document.getElementById('messagesContainer');
     
     const messageDiv = document.createElement('div');
-    messageDiv.className = 'message-card';  // 使用已定义的样式类
+    messageDiv.className = 'message-card'; // 使用现有样式类
     messageDiv.innerHTML = `
-        <div class="message-author">${escapeHtml(message.author)}</div>
-        <div class="message-time">${message.timestamp}</div>
-        <div class="message-text">${escapeHtml(message.text)}</div>
+        <div class="message-author" style="font-weight: bold; color: #FF69B4;">${escapeHtml(message.author)}</div>
+        <div class="message-time" style="font-size: 0.8em; color: #999; margin: 5px 0;">${message.timestamp}</div>
+        <div class="message-text">${escapeHtml(message.content)}</div>
     `;
     
-    container.appendChild(messageDiv);
-    
-    // 滚动到底部
-    container.scrollTop = container.scrollHeight;
+    // 插入到最前面（最新留言在顶部）
+    container.insertBefore(messageDiv, container.firstChild);
 }
 
 function loadMessages() {
-    const messages = JSON.parse(localStorage.getItem('friendshipMessages') || '[]');
     const container = document.getElementById('messagesContainer');
+    container.innerHTML = '<p style="text-align: center; color: #999;">加载中...</p>';
     
-    messages.forEach(message => {
-        displayMessage(message);
+    // 从 LeanCloud 查询留言（按时间倒序）
+    const query = new AV.Query('Message');
+    query.descending('createdAt'); // 最新的留言排在前面
+    query.find().then(messages => {
+        container.innerHTML = ''; // 清空加载提示
+        
+        if (messages.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: #999; font-size: 1.1em;">暂无留言，快来写下想对30岁的我们说的话吧～</p>';
+            return;
+        }
+        
+        // 显示所有留言
+        messages.forEach(avObject => {
+            displayMessage(avObject.toJSON());
+        });
+    }).catch(error => {
+        console.error('加载留言失败:', error);
+        container.innerHTML = '<p style="text-align: center; color: #ff4444;">加载失败，请刷新页面重试</p>';
     });
-    
-    // 如果没有留言，显示提示
-    if (messages.length === 0) {
-        container.innerHTML = '<p style="text-align: center; color: #999; font-size: 1.1em;">暂无留言，快来写下想对30岁的我们说的话吧～</p>';
-    }
 }
 
-// HTML转义函数（防止XSS攻击）
+// 保留原有的 HTML 转义函数（防止 XSS）
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
 }
-
-// 清除所有留言（可选功能）
-function clearAllMessages() {
-    if (confirm('确定要清除所有留言吗？')) {
-        localStorage.removeItem('friendshipMessages');
-        location.reload();
-    }
-}
-
 // ========== 表情包动画 ==========
 function animateStickers() {
     const stickers = document.querySelectorAll('.sticker');

@@ -515,14 +515,12 @@
 </div>
     
     <!-- 留言墙区域 -->
-    <div class="holiday-message-wall">
-        <h3 class="wall-title">留言墙 <span>💬</span></h3>
-        
-        <div class="message-input-area">
-            <input type="text" id="messageAuthor" placeholder="你的名字">
-            <textarea id="messageContent" placeholder="分享你的留言..."></textarea>
-           <button id="addMessageBtn" class="btn primary" onclick="submitMessage()">添加留言</button>
-        </div>
+   <!-- 在 index.html 的留言输入区域保持不变，确保字段正确 -->
+<div class="message-input-area">
+    <input type="text" id="messageAuthor" placeholder="你的名字">
+    <textarea id="messageContent" placeholder="留下你想说的话..."></textarea>
+    <button id="addMessageBtn" class="btn primary" onclick="submitMessage()">添加留言</button>
+</div>
         
         <div id="messagesContainer" class="messages-container">
             <!-- 示例留言 -->
